@@ -146,6 +146,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Get parameters for figure.')
     parser.add_argument('--target_day', type=str, default="2016-09-10", help='Target time, in YY-mm-dd format.')
     parser.add_argument('--target_time', type=str, default="15:00", help='Target time, in HH:MM format.')
+    parser.add_argument('--coarsen', type=bool, default=True, help='Coarsen MNH data by a factor of 5')
     args = parser.parse_args()
     
     # Input target time
@@ -193,15 +194,38 @@ if __name__ == "__main__":
     extent = [longitude[0],longitude[-1],latitude[0],latitude[-1]]
     
     #- OLR data, cropped in target range
-    RLUT_lag0 = data_lag0.RLUT_INST[0].values
-    RLUT_lag0[RLUT_lag0 > vmax] = np.nan
+    RLUT_lag0 = data_lag0.RLUT_INST[0]
+    RLUT_lag6 = data_lag6.RLUT_INST[0]
+    RLUT_lag12 = data_lag12.RLUT_INST[0]
+
+    # Coarsen
+    if args.coarsen :
+    
+        # coarsen values
+        RLUT_lag0 = RLUT_lag0.coarsen(ni=5, nj=5, boundary="exact").mean()
+        RLUT_lag6 = RLUT_lag6.coarsen(ni=5, nj=5, boundary="exact").mean()
+        RLUT_lag12 = RLUT_lag12.coarsen(ni=5, nj=5, boundary="exact").mean()
+    
+        # coarsen domain coords
+        lon_array = RLUT_lag0.longitude.values
+        lat_array = RLUT_lag0.latitude.values
+        longitude = RLUT_lag0.longitude[0].values
+        latitude = RLUT_lag0.latitude[:,0].values
+        extent = [longitude[0],longitude[-1],latitude[0],latitude[-1]]
+    
+    # Load in memory
+    RLUT_lag0 = RLUT_lag0.values
+    RLUT_lag6 = RLUT_lag6.values
+    RLUT_lag12 = RLUT_lag12.values
+    
+    # Crop values
     RLUT_lag0[RLUT_lag0 < vmin] = np.nan
-    RLUT_lag6 = data_lag6.RLUT_INST[0].values
-    RLUT_lag6[RLUT_lag6 > vmax] = np.nan
     RLUT_lag6[RLUT_lag6 < vmin] = np.nan
-    RLUT_lag12 = data_lag12.RLUT_INST[0].values
-    RLUT_lag12[RLUT_lag12 > vmax] = np.nan
     RLUT_lag12[RLUT_lag12 < vmin] = np.nan
+    
+    RLUT_lag0[RLUT_lag0 > vmax] = np.nan
+    RLUT_lag6[RLUT_lag6 > vmax] = np.nan
+    RLUT_lag12[RLUT_lag12 > vmax] = np.nan
 
     
     ##-- Get GOES-W Tb data, convert it to OLR, and crop to target domain
@@ -265,8 +289,12 @@ if __name__ == "__main__":
     ax = axs[3]
     showSubplot(lon_array, lat_array, RLUT_lag12, data_crs, extent, vmin=vmin, vmax=vmax)
     ax.set_title('$t_0 = $%s'%(dt.strftime(time_ref+lag_12h,"%Y-%m-%dT%H:%M")))
+
+    if args.coarsen:
+        save_path = os.path.join(fig_dir,'RC5_GOESW_MNH_%s_coarsened.png'%(dt.strftime(target_time_MNH,"%Y%m%dT%H%M")))
+    else:
+        save_path = os.path.join(fig_dir,'RC5_GOESW_MNH_%s.png'%(dt.strftime(target_time_MNH,"%Y%m%dT%H%M")))
     
-    save_path = os.path.join(fig_dir,'RC5_GOESW_MNH_%s.png'%(dt.strftime(target_time_MNH,"%Y%m%dT%H%M")))
     plt.savefig(save_path,bbox_inches='tight')
 
 

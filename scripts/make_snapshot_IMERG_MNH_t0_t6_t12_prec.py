@@ -104,6 +104,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Get parameters for figure.')
     parser.add_argument('--target_day', type=str, default="2016-09-10", help='Target time, in YY-mm-dd format.')
     parser.add_argument('--target_time', type=str, default="15:00", help='Target time, in HH:MM format.')
+    parser.add_argument('--coarsen', type=bool, default=True, help='Coarsen MNH data by a factor of 5')
     args = parser.parse_args()
     
     # Input target time
@@ -142,20 +143,44 @@ if __name__ == "__main__":
     data_lag0 = xr.open_dataset(getMNHFileAtTime(target_time_MNH,lag_h=0))
     data_lag6 = xr.open_dataset(getMNHFileAtTime(target_time_MNH,lag_h=6))
     data_lag12 = xr.open_dataset(getMNHFileAtTime(target_time_MNH,lag_h=12))
-    
+
     #- Domain coords
     lon_array = data_lag0.longitude.values
     lat_array = data_lag0.latitude.values
     longitude = data_lag0.longitude[0].values
     latitude = data_lag0.latitude[:,0].values
     extent = [longitude[0],longitude[-1],latitude[0],latitude[-1]]
-    
+
     #- Precipitation data, cropped in target range
-    prec_lag0 = data_lag0.ACPRRSTEP[0].values / (time_step_MNH * s_to_h) / rho_w * m_to_mm # mm/h
+    
+    # Get variable and convert to correct units
+    prec_lag0 = data_lag0.ACPRRSTEP[0] / (time_step_MNH * s_to_h) / rho_w * m_to_mm # mm/h
+    prec_lag6 = data_lag6.ACPRRSTEP[0] / (time_step_MNH * s_to_h) / rho_w * m_to_mm # mm/h
+    prec_lag12 = data_lag12.ACPRRSTEP[0] / (time_step_MNH * s_to_h) / rho_w * m_to_mm # mm/h
+    
+    # Coarsen
+    if args.coarsen :
+    
+        # coarsen values
+        prec_lag0 = prec_lag0.coarsen(ni=5, nj=5, boundary="exact").mean()
+        prec_lag6 = prec_lag6.coarsen(ni=5, nj=5, boundary="exact").mean()
+        prec_lag12 = prec_lag12.coarsen(ni=5, nj=5, boundary="exact").mean()
+    
+        # coarsen domain coords
+        lon_array = prec_lag0.longitude.values
+        lat_array = prec_lag0.latitude.values
+        longitude = prec_lag0.longitude[0].values
+        latitude = prec_lag0.latitude[:,0].values
+        extent = [longitude[0],longitude[-1],latitude[0],latitude[-1]]
+    
+    # Load in memory
+    prec_lag0 = prec_lag0.values
+    prec_lag6 = prec_lag6.values
+    prec_lag12 = prec_lag12.values
+        
+    # Crop values
     prec_lag0[prec_lag0 < vmin] = np.nan
-    prec_lag6 = data_lag6.ACPRRSTEP[0].values / (time_step_MNH * s_to_h) / rho_w * m_to_mm # mm/h
     prec_lag6[prec_lag6 < vmin] = np.nan
-    prec_lag12 = data_lag12.ACPRRSTEP[0].values / (time_step_MNH * s_to_h) / rho_w * m_to_mm # mm/h
     prec_lag12[prec_lag12 < vmin] = np.nan
 
     
@@ -231,8 +256,12 @@ if __name__ == "__main__":
     ax = axs[3]
     showSubplot(lon_array, lat_array, prec_lag12, data_crs, extent)
     ax.set_title('$t_0 = $%s (3s acc., mm/h)'%(dt.strftime(time_ref+lag_12h,"%Y-%m-%dT%H:%M")))
+   
+    if args.coarsen:
+        save_path = os.path.join(fig_dir,'RC5_IMERG_MNH_%s_coarsened.png'%(dt.strftime(target_time_MNH,"%Y%m%dT%H%M")))
+    else:
+        save_path = os.path.join(fig_dir,'RC5_IMERG_MNH_%s.png'%(dt.strftime(target_time_MNH,"%Y%m%dT%H%M")))
     
-    save_path = os.path.join(fig_dir,'RC5_IMERG_MNH_%s.png'%(dt.strftime(target_time_MNH,"%Y%m%dT%H%M")))
     plt.savefig(save_path,bbox_inches='tight')
 
 
