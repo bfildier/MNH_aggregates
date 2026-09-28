@@ -41,14 +41,22 @@ def getMNHFileAtTime(target_time,time_ref=dt(2016,9,10),lag_h=0):
     #-- get corresponding time file
     # time difference
     delta_t = target_time - (time_ref+timedelta(seconds=lag_h*3600))
-    # find corresponding subfolder
-    i_seg = int((delta_t.total_seconds()/3600/Dt - 1) / (12/Dt) ) +1 # segment number
-    subfolder = "seg0%d_12h_tege"%i_seg
-    # build corresponding filename
-    i_t_seg = int((delta_t.total_seconds()/3600/Dt - 1) % int(12/Dt) + 1)
-    filename = "FBC01.1.MNH0%d.OUT.%s.nc"%(i_seg,str(i_t_seg).zfill(3))
-    # full path
-    path = os.path.join(sim_dir,sim_names[i_lag],subfolder,filename)
+    if delta_t.total_seconds() >= 0:
+        # number of output steps
+        n_out = int(delta_t.total_seconds()/3600/Dt - 1)
+        # compute corresponding subfolder number
+        i_seg = floor(n_out / (12/Dt) ) +1 # segment number
+        # compute corresponding file step
+        i_t_seg = int(n_out % int(12/Dt) + 1)
+        # build corresponding subfolder
+        subfolder = "seg0%d_12h_tege"%i_seg
+        # build corresponding filename
+        filename = "FBC01.1.MNH0%d.OUT.%s.nc"%(i_seg,str(i_t_seg).zfill(3))
+        # full path
+        path = os.path.join(sim_dir,sim_names[i_lag],subfolder,filename)
+        
+    else:
+        path = None
 
     return path
 
@@ -243,7 +251,8 @@ if __name__ == "__main__":
     # create file path 
     file_path = os.path.join(data_dir,file_name)
     # Load dataset
-    data_obs = xr.open_dataset(file_path)
+    with warnings.catch_warnings(action="ignore"):
+        data_obs = xr.open_dataset(file_path)
 
     #- Format observations to display
 
