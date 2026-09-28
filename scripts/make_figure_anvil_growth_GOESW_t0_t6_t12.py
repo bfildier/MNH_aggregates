@@ -337,7 +337,7 @@ if __name__ == "__main__":
     # legend
     ax.legend()
     # axes
-    ax.set_ylabel('Fraction > %dK (%%)'%Tb_ref)
+    ax.set_ylabel('Fraction < %dK (%%)'%Tb_ref)
     plt.xticks(rotation=45)
     # title
     ax.set_title(args.title)
